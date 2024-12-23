@@ -482,6 +482,7 @@ class WeatherBot:
                 # Format message
                 current = data['current']
                 forecast = data['forecast']['forecastday'][0]['day']
+                location_name = data['location']['name']
                 
                 temp = current['temp_c']
                 temp_max = forecast['maxtemp_c']
@@ -492,7 +493,7 @@ class WeatherBot:
                     temp_min = forecast['mintemp_f']
 
                 message = (
-                    "Buenos días! Aquí está tu pronóstico diario para {data['location']['name']}:\n\n"
+                    f"Buenos días! Aquí está tu pronóstico diario para {location_name}:\n\n"
                     f"Temperatura actual: {temp}°{preferences.temperature_unit}\n"
                     f"Máxima: {temp_max}°{preferences.temperature_unit}\n"
                     f"Mínima: {temp_min}°{preferences.temperature_unit}\n"
@@ -632,12 +633,15 @@ def main():
         # Start the Bot with webhook (for Railway)
         if os.environ.get('RAILWAY_STATIC_URL'):
             railway_url = os.environ.get('RAILWAY_STATIC_URL')
-            logger.info(f"Starting webhook on Railway URL: {railway_url}")
+            webhook_url = f"{railway_url}/{TELEGRAM_TOKEN}"
+            logger.info(f"Starting webhook on Railway URL: {webhook_url}")
+            
+            # Start the webhook
             application.run_webhook(
                 listen="0.0.0.0",
-                port=PORT,
+                port=int(os.environ.get('PORT', '8443')),
                 url_path=TELEGRAM_TOKEN,
-                webhook_url=f"{railway_url}/{TELEGRAM_TOKEN}"
+                webhook_url=webhook_url
             )
         else:
             # For local development
