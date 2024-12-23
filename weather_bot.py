@@ -1,5 +1,7 @@
 import os
 import logging
+import sys
+import traceback
 from datetime import datetime, time
 import pytz
 import requests
@@ -21,6 +23,12 @@ from utils.logger import setup_logger
 from utils.storage import Storage
 from utils.keyboard_handler import KeyboardHandler
 
+# Configure exception handling
+def handle_exception(exc_type, exc_value, exc_traceback):
+    logger.error("Uncaught exception:", exc_info=(exc_type, exc_value, exc_traceback))
+
+sys.excepthook = handle_exception
+
 # Load environment variables
 load_dotenv()
 
@@ -29,8 +37,9 @@ logger = setup_logger('weather_bot')
 
 # Constants
 WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-WEATHER_BASE_URL = "http://api.weatherapi.com/v1"
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')  # Updated to match .env file
+WEATHER_BASE_URL = 'http://api.weatherapi.com/v1'
+PORT = int(os.environ.get('PORT', '8443'))
 
 class WeatherBot:
     def __init__(self):
@@ -50,7 +59,7 @@ class WeatherBot:
             self.storage.save_user_preferences(preferences)
 
         welcome_message = (
-            "👋 ¡Bienvenido al Bicho_Bot del Clima!\n\n"
+            "¡Bienvenido al Bicho_Bot del Clima!\n\n"
             "Selecciona una opción del menú:"
         )
         await update.message.reply_text(
@@ -71,12 +80,12 @@ class WeatherBot:
             await self.get_forecast(update, context)
         elif query.data == "settings":
             await query.edit_message_text(
-                "⚙️ Configuración\n\nSelecciona una opción:",
+                "Configuración\n\nSelecciona una opción:",
                 reply_markup=self.keyboard_handler.get_settings_menu()
             )
         elif query.data == "alerts":
             await query.edit_message_text(
-                "🔔 Configuración de Alertas\n\nSelecciona una opción:",
+                "Configuración de Alertas\n\nSelecciona una opción:",
                 reply_markup=self.keyboard_handler.get_alert_menu()
             )
         elif query.data == "main_menu":
@@ -87,7 +96,7 @@ class WeatherBot:
         elif query.data == "change_location":
             context.user_data['expecting_location'] = True
             await query.edit_message_text(
-                "📍 Por favor, envía el nombre de tu ciudad.\n"
+                "Por favor, envía el nombre de tu ciudad.\n"
                 "Ejemplo: Madrid",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("« Volver", callback_data="settings")
@@ -95,7 +104,7 @@ class WeatherBot:
             )
         elif query.data == "change_unit":
             await query.edit_message_text(
-                "🌡️ Selecciona tu unidad de temperatura preferida:",
+                "Selecciona tu unidad de temperatura preferida:",
                 reply_markup=self.keyboard_handler.get_temperature_unit_menu()
             )
         elif query.data.startswith("unit_"):
@@ -104,12 +113,12 @@ class WeatherBot:
                 preferences.temperature_unit = unit
                 self.storage.save_user_preferences(preferences)
                 await query.edit_message_text(
-                    f"✅ Unidad de temperatura cambiada a {unit}°",
+                    f"Unidad de temperatura cambiada a {unit}°",
                     reply_markup=self.keyboard_handler.get_settings_menu()
                 )
         elif query.data == "daily_notification":
             await query.edit_message_text(
-                "🕒 Configura el horario para recibir el pronóstico diario:\n\n"
+                "Configura el horario para recibir el pronóstico diario:\n\n"
                 "Por favor, envía la hora en formato HH:MM (24h)\n"
                 "Ejemplo: 08:00",
                 reply_markup=InlineKeyboardMarkup([[
@@ -119,7 +128,7 @@ class WeatherBot:
             context.user_data['expecting_time'] = True
         elif query.data == "change_language":
             await query.edit_message_text(
-                "🌍 Selecciona tu idioma preferido:",
+                "Selecciona tu idioma preferido:",
                 reply_markup=self.keyboard_handler.get_language_menu()
             )
         elif query.data.startswith("lang_"):
@@ -127,14 +136,14 @@ class WeatherBot:
             if preferences:
                 preferences.language = lang
                 self.storage.save_user_preferences(preferences)
-                message = "✅ Language changed to English" if lang == "en" else "✅ Idioma cambiado a Español"
+                message = "Language changed to English" if lang == "en" else "Idioma cambiado a Español"
                 await query.edit_message_text(
                     message,
                     reply_markup=self.keyboard_handler.get_settings_menu()
                 )
         elif query.data == "temp_alerts":
             await query.edit_message_text(
-                "🌡️ Configura las alertas de temperatura\n\n"
+                "Configura las alertas de temperatura\n\n"
                 "Envía los límites de temperatura en formato: MIN MAX\n"
                 "Ejemplo: 15 25",
                 reply_markup=InlineKeyboardMarkup([[
@@ -145,7 +154,7 @@ class WeatherBot:
         elif query.data == "daily_summary":
             if not preferences or not preferences.location:
                 await query.edit_message_text(
-                    "❌ Primero debes configurar tu ubicación en el menú de configuración.",
+                    "Primero debes configurar tu ubicación en el menú de configuración.",
                     reply_markup=self.keyboard_handler.get_alert_menu()
                 )
             else:
@@ -153,7 +162,7 @@ class WeatherBot:
                 self.storage.save_user_preferences(preferences)
                 status = "activado" if preferences.daily_forecast else "desactivado"
                 await query.edit_message_text(
-                    f"✅ Resumen diario {status}",
+                    f"Resumen diario {status}",
                     reply_markup=self.keyboard_handler.get_alert_menu()
                 )
         elif query.data == "disable_alerts":
@@ -162,21 +171,21 @@ class WeatherBot:
                 preferences.daily_forecast = False
                 self.storage.save_user_preferences(preferences)
             await query.edit_message_text(
-                "✅ Todas las alertas han sido desactivadas",
+                "Todas las alertas han sido desactivadas",
                 reply_markup=self.keyboard_handler.get_alert_menu()
             )
         elif query.data == "help":
             help_text = (
-                "❓ Ayuda del Bicho_Bot del Clima\n\n"
-                "🌤️ Clima Actual: Ver el clima actual en tu ubicación\n"
-                "📅 Pronóstico: Ver pronóstico de 3 días\n"
-                "⚙️ Configuración: Cambiar ubicación, unidades, etc.\n"
-                "🔔 Alertas: Configurar alertas de temperatura\n\n"
-                "📍 Para cambiar tu ubicación:\n"
+                "Ayuda del Bicho_Bot del Clima\n\n"
+                "Clima Actual: Ver el clima actual en tu ubicación\n"
+                "Pronóstico: Ver pronóstico de 3 días\n"
+                "Configuración: Cambiar ubicación, unidades, etc.\n"
+                "Alertas: Configurar alertas de temperatura\n\n"
+                "Para cambiar tu ubicación:\n"
                 "1. Ve a Configuración\n"
                 "2. Selecciona 'Cambiar Ubicación'\n"
                 "3. Envía el nombre de tu ciudad\n\n"
-                "🌡️ Para configurar alertas:\n"
+                "Para configurar alertas:\n"
                 "1. Ve a Alertas\n"
                 "2. Elige el tipo de alerta\n"
                 "3. Sigue las instrucciones en pantalla"
@@ -212,13 +221,13 @@ class WeatherBot:
                     self.storage.save_user_preferences(preferences)
                 
                 await update.message.reply_text(
-                    f"✅ Ubicación establecida en: {location}",
+                    f"Ubicación establecida en: {location}",
                     reply_markup=self.keyboard_handler.get_main_menu()
                 )
             except Exception as e:
                 logger.error(f"Error validating location: {str(e)}")
                 await update.message.reply_text(
-                    "❌ No se pudo encontrar esa ubicación. Por favor, intenta con otra.",
+                    "No se pudo encontrar esa ubicación. Por favor, intenta con otra.",
                     reply_markup=self.keyboard_handler.get_main_menu()
                 )
             finally:
@@ -236,12 +245,12 @@ class WeatherBot:
                     await self.set_daily_notification(user_id, notification_time)
                 
                 await update.message.reply_text(
-                    f"✅ Notificaciones diarias configuradas para las {time_str}",
+                    f"Notificaciones diarias configuradas para las {time_str}",
                     reply_markup=self.keyboard_handler.get_main_menu()
                 )
             except ValueError:
                 await update.message.reply_text(
-                    "❌ Formato de hora inválido. Por favor, usa el formato HH:MM (ejemplo: 08:00)",
+                    "Formato de hora inválido. Por favor, usa el formato HH:MM (ejemplo: 08:00)",
                     reply_markup=self.keyboard_handler.get_main_menu()
                 )
             finally:
@@ -258,14 +267,14 @@ class WeatherBot:
                     self.storage.save_user_preferences(preferences)
                 
                 await update.message.reply_text(
-                    f"✅ Alertas de temperatura configuradas:\n"
+                    f"Alertas de temperatura configuradas:\n"
                     f"Mínima: {temp_min}°{preferences.temperature_unit}\n"
                     f"Máxima: {temp_max}°{preferences.temperature_unit}",
                     reply_markup=self.keyboard_handler.get_main_menu()
                 )
             except ValueError:
                 await update.message.reply_text(
-                    "❌ Formato inválido. Por favor, envía dos números separados por espacio (ejemplo: 15 25)",
+                    "Formato inválido. Por favor, envía dos números separados por espacio (ejemplo: 15 25)",
                     reply_markup=self.keyboard_handler.get_main_menu()
                 )
             finally:
@@ -310,11 +319,11 @@ class WeatherBot:
                 temp = current['temp_f']
             
             weather_message = (
-                f"🌍 Clima en {location_data['name']}, {location_data['country']}\n"
-                f"🌡️ Temperatura: {temp}°{preferences.temperature_unit}\n"
-                f"🌤️ Condición: {self.translate_condition(current['condition']['text'])}\n"
-                f"💧 Humedad: {current['humidity']}%\n"
-                f"💨 Viento: {current['wind_kph']} km/h"
+                f"Clima en {location_data['name']}, {location_data['country']}\n"
+                f"Temperatura: {temp}°{preferences.temperature_unit}\n"
+                f"Condición: {self.translate_condition(current['condition']['text'])}\n"
+                f"Humedad: {current['humidity']}%\n"
+                f"Viento: {current['wind_kph']} km/h"
             )
 
             # Check if this is a callback query or direct command
@@ -340,7 +349,7 @@ class WeatherBot:
     async def request_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Request location from user."""
         message = (
-            "📍 Por favor, establece primero tu ubicación.\n"
+            "Por favor, establece primero tu ubicación.\n"
             "Introduce el nombre de tu ciudad.\n"
             "Ejemplo: Madrid"
         )
@@ -388,7 +397,7 @@ class WeatherBot:
             response.raise_for_status()
             forecast_data = response.json()
 
-            forecast_message = f"🗓️ Pronóstico de 3 días para {forecast_data['location']['name']}:\n\n"
+            forecast_message = f"Pronóstico de 3 días para {forecast_data['location']['name']}:\n\n"
             
             for day in forecast_data['forecast']['forecastday']:
                 date = datetime.strptime(day['date'], '%Y-%m-%d').strftime('%A, %d de %B')
@@ -409,11 +418,11 @@ class WeatherBot:
                     temp_min = day['day']['mintemp_f']
 
                 forecast_message += (
-                    f"📅 {date}\n"
-                    f"🌡️ Máxima: {temp_max}°{preferences.temperature_unit}\n"
-                    f"🌡️ Mínima: {temp_min}°{preferences.temperature_unit}\n"
-                    f"🌤️ Condición: {self.translate_condition(day['day']['condition']['text'])}\n"
-                    f"🌧️ Probabilidad de lluvia: {day['day']['daily_chance_of_rain']}%\n\n"
+                    f"{date}\n"
+                    f"Máxima: {temp_max}°{preferences.temperature_unit}\n"
+                    f"Mínima: {temp_min}°{preferences.temperature_unit}\n"
+                    f"Condición: {self.translate_condition(day['day']['condition']['text'])}\n"
+                    f"Probabilidad de lluvia: {day['day']['daily_chance_of_rain']}%\n\n"
                 )
 
             try:
@@ -483,12 +492,12 @@ class WeatherBot:
                     temp_min = forecast['mintemp_f']
 
                 message = (
-                    f"☀️ Buenos días! Aquí está tu pronóstico diario para {data['location']['name']}:\n\n"
-                    f"🌡️ Temperatura actual: {temp}°{preferences.temperature_unit}\n"
-                    f"📈 Máxima: {temp_max}°{preferences.temperature_unit}\n"
-                    f"📉 Mínima: {temp_min}°{preferences.temperature_unit}\n"
-                    f"🌤️ Condición: {self.translate_condition(forecast['condition']['text'])}\n"
-                    f"🌧️ Probabilidad de lluvia: {forecast['daily_chance_of_rain']}%"
+                    "Buenos días! Aquí está tu pronóstico diario para {data['location']['name']}:\n\n"
+                    f"Temperatura actual: {temp}°{preferences.temperature_unit}\n"
+                    f"Máxima: {temp_max}°{preferences.temperature_unit}\n"
+                    f"Mínima: {temp_min}°{preferences.temperature_unit}\n"
+                    f"Condición: {self.translate_condition(forecast['condition']['text'])}\n"
+                    f"Probabilidad de lluvia: {forecast['daily_chance_of_rain']}%"
                 )
 
                 # Send message
@@ -593,6 +602,17 @@ class WeatherBot:
 def main():
     """Start the bot."""
     try:
+        # Debug logging for environment variables
+        logger.info("Checking environment variables...")
+        if not TELEGRAM_TOKEN:
+            logger.error("TELEGRAM_BOT_TOKEN is not set!")
+            raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set")
+        if not WEATHER_API_KEY:
+            logger.error("WEATHER_API_KEY is not set!")
+            raise ValueError("WEATHER_API_KEY environment variable is not set")
+        
+        logger.info("Environment variables loaded successfully")
+        
         # Create the bot instance
         weather_bot = WeatherBot()
         
@@ -608,8 +628,22 @@ def main():
         application.add_error_handler(weather_bot.error_handler)
 
         logger.info("Starting bot...")
-        # Start the Bot
-        application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+        
+        # Start the Bot with webhook (for Railway)
+        if os.environ.get('RAILWAY_STATIC_URL'):
+            railway_url = os.environ.get('RAILWAY_STATIC_URL')
+            logger.info(f"Starting webhook on Railway URL: {railway_url}")
+            application.run_webhook(
+                listen="0.0.0.0",
+                port=PORT,
+                url_path=TELEGRAM_TOKEN,
+                webhook_url=f"{railway_url}/{TELEGRAM_TOKEN}"
+            )
+        else:
+            # For local development
+            logger.info("Starting polling mode for local development")
+            application.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+            
     except Exception as e:
         logger.error(f"Error starting bot: {e}")
         raise e
