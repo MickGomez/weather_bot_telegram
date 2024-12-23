@@ -244,8 +244,10 @@ class WeatherBot:
                     self.storage.save_user_preferences(preferences)
                     await self.set_daily_notification(user_id, notification_time)
                 
+                # Format time for display
+                formatted_time = f"{notification_time.hour:02d}:{notification_time.minute:02d}"
                 await update.message.reply_text(
-                    f"Notificaciones diarias configuradas para las {time_str}",
+                    f"Notificaciones diarias configuradas para las {formatted_time}",
                     reply_markup=self.keyboard_handler.get_main_menu()
                 )
             except ValueError:
