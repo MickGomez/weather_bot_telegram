@@ -104,7 +104,3 @@ weather_chatbot/
 ├── data/                # Data storage
 └── logs/                # Log files
 ```
-
-## Contributing
-
-Feel free to submit issues and enhancement requests!
