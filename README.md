@@ -104,7 +104,4 @@ weather_chatbot/
 ├── data/                # Data storage
 └── logs/                # Log files
 ```
-<<<<<<< HEAD
 
-=======
->>>>>>> bb5b8717857bdf1e673f5c799d414b8fd8954561
